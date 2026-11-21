@@ -68,3 +68,14 @@ function onMsg(c,m){
   const l=c.lobby,me=l&&l.players.get(c.pid);
   switch(m.t){
     case "create":{const code=newCode(),pid=rid(8),tok=rid(16),L={code,name:clean(m.name)||"Lobby",max:Math.min(12,Math.max(2,+m.max||6)),dur:Math.min(30,Math.max(1,+m.dur||5)),pre:["f","m","fm","n"].includes(m.pre)?m.pre:"f",custom:Array.isArray(m.custom)?m.custom.slice(0,200).map(q=>[clean(q.at(0)).slice(0,200),(q.at(1)||[]).slice(0,8).map(a=>clean(a))]):[],noRepeat:!!m.noRepeat,play:!!m.play,status:"lobby",players:new Map(),t0:Date.now()};L.players.set(pid,{id:pid,tok,name:clean(m.player)||"Professor",role:"prof",conn:c});lobbies.set(code,L);c.lobby=L;c.pid=pid;c.send({t:"joined",pid,tok,lobby:pub(L)});break}
+case "join":{const L=lobbies.get(String(m.code||"").toUpperCase().trim());if(!L){c.send({t:"err",msg:"Lobby não encontrado."});return}for(const p of L.players.values())if(m.tok&&p.tok===m.tok){if(p.conn&&p.conn!==c){p.conn.lobby=null;try{p.conn.sock.end()}catch{}}p.conn=c;c.lobby=L;c.pid=p.id;c.send({t:"joined",pid:p.id,tok:p.tok,lobby:pub(L),re:true});push(L);return}if(L.status!=="lobby"){c.send({t:"err",msg:"Partida já começou."});return}if([...L.players.values()].filter(p=>!(p.role==="prof"&&!L.play)).length>=L.max){c.send({t:"err",msg:"Lobby cheio."});return}const pid=rid(8),tok=rid(16);L.players.set(pid,{id:pid,tok,name:clean(m.player)||"Aluno",role:"stu",conn:c});c.lobby=L;c.pid=pid;c.send({t:"joined",pid,tok,lobby:pub(L)});push(L);break}
+case "start":if(!me||me.role!=="prof"||l.status!=="lobby")return;l.status="playing";l.startAt=Date.now();bcast(l,{t:"start",lobby:pub(l),seed:crypto.randomInt(1e9)});push(l);break;
+case "state":if(!me)return;for(const p of l.players.values())if(p.id!==me.id&&p.conn&&p.conn.alive)p.conn.send({t:"state",id:me.id,s:m.s});break;
+case "event":if(!me)return;if(typeof m.score==="number")me.score=m.score;bcast(l,{t:"event",id:me.id,e:m.e,d:m.d});break;
+case "end":if(!me||me.role!=="prof")return;l.status="lobby";bcast(l,{t:"end"});push(l);break;
+case "kick":if(!me||me.role!=="prof")return;{const p=l.players.get(m.id);if(p&&p.role!=="prof"){if(p.conn){p.conn.send({t:"kicked"});p.conn.lobby=null}l.players.delete(m.id);push(l)}}break;
+case "leave":if(!me)return;if(me.role==="prof"){bcast(l,{t:"closed"});lobbies.delete(l.code)}else{l.players.delete(me.id);push(l)}c.lobby=null;break;
+case "ping":c.send({t:"pong"});break;
+}
+}
+srv.listen(PORT,()=>console.log("Mindshot online na porta "+PORT));
