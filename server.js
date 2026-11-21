@@ -29,8 +29,8 @@ const srv=http.createServer(async(req,res)=>{
         if(Date.now()>Number(user.otp_expires))return sendJSON(res,401,{ok:false,error:"Código expirado.",msg:"Código expirado."});
         const fn=name||user.name||email.split("@").at(0);
         await pool.query("UPDATE users SET otp_code=NULL,otp_expires=NULL,name=$1,role=$2 WHERE email=$3",[fn,role,email]);
-        const tk=signToken({email,name:fn,role,exp:Date.now()+2592000000});
-        return sendJSON(res,200,{ok:true,token:tk,user:{email,name:fn,role}});
+        return sendJSON(res,200,{ok:true,signupToken:signToken({email,exp:Date.now()+900000})});
+
       }
       if(!email||!email.includes("@"))return sendJSON(res,400,{ok:false,error:"E-mail inválido.",msg:"E-mail inválido."});
       const newOtp=String(crypto.randomInt(100000,999999)),exp=Date.now()+900000;
