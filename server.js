@@ -5,7 +5,8 @@ const _d=s=>Buffer.from(s,"base64").toString("utf8");
 const DB_URL=process.env.DATABASE_URL||_d("cG9zdGdyZXNxbDovL21pbmRzaG90X2RiX3VzZXI6dk94Mll1V0xBdHFadThWd3BoR0thbkZ2VEwwNHk4UDBAZHBnLWRjMHMzcGMwOTE2czczY21hbGtnLWEvbWluZHNob3RfZGI=");
 const BREVO_KEY=process.env.BREVO_API_KEY||_d("eGtleXNpYi03NGNjNmU5NDdkMzk5NzBlMjRmZGViOGRiYzMzOWE4MDRkY2RhZGMyMDUzMGQyYzhmMzI3NDExMWJkZDc0MWE4LTI0d0lyQzBzQ3p0eWI2Z28=");
 const pool=new Pool({connectionString:DB_URL,ssl:DB_URL.includes("render.com")?{rejectUnauthorized:false}:false});
-pool.query("CREATE TABLE IF NOT EXISTS users(email VARCHAR(255) PRIMARY KEY,name VARCHAR(100),role VARCHAR(20) DEFAULT 'stu',otp_code VARCHAR(10),otp_expires BIGINT,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)").then(()=>console.log("DB OK")).catch(e=>console.error("DB ERRO:",e.message));
+pool.query("CREATE TABLE IF NOT EXISTS users(email VARCHAR(255) PRIMARY KEY,username VARCHAR(30),pass_hash TEXT,name VARCHAR(100),role VARCHAR(20) DEFAULT 'stu',otp_code VARCHAR(10),otp_expires BIGINT);ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(30),ADD COLUMN IF NOT EXISTS pass_hash TEXT").then(()=>console.log("DB OK")).catch(e=>console.error("DB ERRO:",e.message));
+
 const readBody=req=>new Promise((res,rej)=>{let d="";req.on("data",c=>{d+=c;if(d.length>1e5)rej(new Error("Grande"))});req.on("end",()=>{try{res(d?JSON.parse(d):{})}catch{res({})}});req.on("error",rej)});
 const sendJSON=(res,st,o)=>{res.writeHead(st,{"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Access-Control-Allow-Headers":"Content-Type,Authorization"});res.end(JSON.stringify(o))};
 const signToken=p=>{const d=Buffer.from(JSON.stringify(p)).toString("base64url"),s=crypto.createHmac("sha256",APP_SECRET).update(d).digest("base64url");return d+"."+s};
