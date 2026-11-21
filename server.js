@@ -15,29 +15,30 @@ const lobbies=new Map(),ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",rid=n=>crypto.r
 const newCode=()=>{let c;do{c=Array.from({length:5},()=>ALPHA[crypto.randomInt(32)]).join("")}while(lobbies.has(c));return c};
 const srv=http.createServer(async(req,res)=>{
   const u=(req.url.split("?").at(0)||"/").replace(/\/+$/,"")||"/";
+  console.log(req.method,u);
   if(req.method==="OPTIONS")return sendJSON(res,200,{ok:true});
   if(u==="/health"){res.end("ok");return}
-  if(req.method==="POST"&&["/api/auth/send-code","/api/send-code","/api/login","/login"].includes(u)){
-    try{const b=await readBody(req),email=String(b.email||"").trim().toLowerCase();
-      if(!email||!email.includes("@"))return sendJSON(res,400,{ok:false,msg:"E-mail inválido."});
-      const code=String(crypto.randomInt(100000,999999)),exp=Date.now()+900000;
-      await pool.query("INSERT INTO users(email,otp_code,otp_expires)VALUES($1,$2,$3)ON CONFLICT(email)DO UPDATE SET otp_code=$2,otp_expires=$3",[email,code,exp]);
-      await sendMail(email,code);return sendJSON(res,200,{ok:true,msg:"Código enviado! Verifique seu e-mail."});
-    }catch(e){console.error(e);return sendJSON(res,500,{ok:false,msg:"Erro ao enviar: "+e.message})}
+  if(req.method==="POST"){
+    try{const b=await readBody(req),email=String(b.email||"").trim().toLowerCase(),code=String(b.code||b.otp||b.token||"").trim();
+      if(code){
+        const name=String(b.name||b.player||"").replace(/[<>]/g,"").trim().slice(0,30),role=b.role==="prof"?"prof":"stu";
+        if(!email)return sendJSON(res,400,{ok:false,error:"Informe o e-mail.",msg:"Informe o e-mail."});
+        const r=await pool.query("SELECT * FROM users WHERE email=$1",[email]),user=r.rows.at(0);
+        if(!user||user.otp_code!==code)return sendJSON(res,401,{ok:false,error:"Código inválido.",msg:"Código inválido."});
+        if(Date.now()>Number(user.otp_expires))return sendJSON(res,401,{ok:false,error:"Código expirado.",msg:"Código expirado."});
+        const fn=name||user.name||email.split("@").at(0);
+        await pool.query("UPDATE users SET otp_code=NULL,otp_expires=NULL,name=$1,role=$2 WHERE email=$3",[fn,role,email]);
+        const tk=signToken({email,name:fn,role,exp:Date.now()+2592000000});
+        return sendJSON(res,200,{ok:true,token:tk,user:{email,name:fn,role}});
+      }
+      if(!email||!email.includes("@"))return sendJSON(res,400,{ok:false,error:"E-mail inválido.",msg:"E-mail inválido."});
+      const newOtp=String(crypto.randomInt(100000,999999)),exp=Date.now()+900000;
+      await pool.query("INSERT INTO users(email,otp_code,otp_expires)VALUES($1,$2,$3)ON CONFLICT(email)DO UPDATE SET otp_code=$2,otp_expires=$3",[email,newOtp,exp]);
+      await sendMail(email,newOtp);
+      return sendJSON(res,200,{ok:true,msg:"Código enviado! Verifique seu e-mail."});
+    }catch(e){console.error("ERRO AUTH:",e);return sendJSON(res,500,{ok:false,error:e.message,msg:"Erro ao enviar: "+e.message})}
   }
-  if(req.method==="POST"&&["/api/auth/verify-code","/api/verify-code","/api/verify","/verify"].includes(u)){
-    try{const b=await readBody(req),email=String(b.email||"").trim().toLowerCase(),code=String(b.code||"").trim(),name=String(b.name||"").replace(/[<>]/g,"").trim().slice(0,30),role=b.role==="prof"?"prof":"stu";
-      if(!email||!code)return sendJSON(res,400,{ok:false,msg:"Preencha e-mail e código."});
-      const r=await pool.query("SELECT * FROM users WHERE email=$1",[email]),user=r.rows.at(0);
-      if(!user||user.otp_code!==code)return sendJSON(res,401,{ok:false,msg:"Código inválido."});
-      if(Date.now()>Number(user.otp_expires))return sendJSON(res,401,{ok:false,msg:"Código expirado."});
-      const fn=name||user.name||email.split("@").at(0);
-      await pool.query("UPDATE users SET otp_code=NULL,otp_expires=NULL,name=$1,role=$2 WHERE email=$3",[fn,role,email]);
-      return sendJSON(res,200,{ok:true,token:signToken({email,name:fn,role,exp:Date.now()+2592000000}),user:{email,name:fn,role}});
-    }catch(e){console.error(e);return sendJSON(res,500,{ok:false,msg:"Erro ao validar código."})}
-  }
-  if(req.method==="GET"&&u==="/api/auth/me"){const usr=verifyToken((req.headers.authorization||"").replace(/^Bearer\s+/i,""));return usr?sendJSON(res,200,{ok:true,user:usr}):sendJSON(res,401,{ok:false})}
-  if(u.startsWith("/api/"))return sendJSON(res,404,{ok:false,msg:"Rota não encontrada."});
+  if(req.method==="GET"&&u.includes("me")){const usr=verifyToken((req.headers.authorization||"").replace(/^Bearer\s+/i,""));return usr?sendJSON(res,200,{ok:true,user:usr}):sendJSON(res,401,{ok:false})}
   fs.readFile(path.join(__dirname,"index.html"),(e,d)=>{if(e){res.writeHead(404);res.end("index.html não encontrado");return}res.writeHead(200,{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-cache"});res.end(d)});
 });
 function frame(op,buf){const n=buf.length;let h;if(n<126)h=Buffer.from([0x80|op,n]);else if(n<65536){h=Buffer.alloc(4);h.writeUInt8(0x80|op,0);h.writeUInt8(126,1);h.writeUInt16BE(n,2)}else{h=Buffer.alloc(10);h.writeUInt8(0x80|op,0);h.writeUInt8(127,1);h.writeBigUInt64BE(BigInt(n),2)}return Buffer.concat([h,buf])}
