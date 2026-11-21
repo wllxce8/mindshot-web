@@ -21,6 +21,9 @@ const srv=http.createServer(async(req,res)=>{
   if(u==="/health"){res.end("ok");return}
   if(req.method==="POST"){
     try{const b=await readBody(req),email=String(b.email||"").trim().toLowerCase(),code=String(b.code||b.otp||b.token||"").trim();
+        if(b.signupToken){const tk=verifyToken(b.signupToken);if(!tk||!tk.email)return sendJSON(res,401,{error:"Sessão expirada."});const un=String(b.username||"").trim(),ph=crypto.scryptSync(String(b.password||""),APP_SECRET,32).toString("hex");await pool.query("UPDATE users SET username=$1,pass_hash=$2,name=$1 WHERE email=$3",[un,ph,tk.email]);const usr={email:tk.email,username:un};return sendJSON(res,200,{token:signToken(usr),user:usr})}
+if(b.id&&b.password){const id=String(b.id).trim().toLowerCase(),ph=crypto.scryptSync(String(b.password),APP_SECRET,32).toString("hex");const r=await pool.query("SELECT * FROM users WHERE LOWER(email)=$1 OR LOWER(username)=$1",[id]),u=r.rows.at(0);if(!u||u.pass_hash!==ph)return sendJSON(res,401,{error:"Dados incorretos."});const usr={email:u.email,username:u.username||u.email.split("@").at(0)};return sendJSON(res,200,{token:signToken(usr),user:usr})}
+
       if(code){
         const name=String(b.name||b.player||"").replace(/[<>]/g,"").trim().slice(0,30),role=b.role==="prof"?"prof":"stu";
         if(!email)return sendJSON(res,400,{ok:false,error:"Informe o e-mail.",msg:"Informe o e-mail."});
