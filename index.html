@@ -77,6 +77,9 @@ tr.me td{color:#ffd400}
 textarea{font:inherit;font-size:18px;color:#fff;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.3);border-radius:10px;padding:8px 10px;width:100%;resize:vertical}
 input,textarea{-webkit-user-select:text;user-select:text}
 .set.col{flex-direction:column;align-items:stretch}
+.set input[type=email],.set input[type=password]{flex:1}
+.hint2{color:var(--soft);font-size:16px;margin:2px 0 8px}
+.stack{display:flex;flex-direction:column;gap:6px}
 .set input[type=text],.set input:not([type]){flex:1}
 .pl{display:inline-block;margin:4px;padding:6px 14px;background:rgba(255,255,255,.1);border-radius:999px;font-size:19px}
 #rcode{letter-spacing:6px;color:#ffd400}
@@ -113,11 +116,31 @@ input,textarea{-webkit-user-select:text;user-select:text}
 <div class="scr" id="role" hidden><div class="box wide"><h1>Como você vai entrar?</h1><div class="cards">
 <button class="card" id="brstu"><span class="ico">🎓</span><b>Estudante</b><small>Jogue, responda e suba no placar</small></button>
 <button class="card" id="brprof"><span class="ico">🧑‍🏫</span><b>Professor</b><small>Crie lobbies e escolha as perguntas</small></button></div>
-<div class="row2"><button class="btn sec small" data-go="menu">Voltar</button></div></div></div>
+<div class="row2"><button class="btn sec small" data-go="menu">Voltar</button><button class="btn sec small" id="au_logout" hidden></button></div></div></div>
 <div class="scr" id="login" hidden><div class="box"><h1 id="ltit">Entrar</h1>
-<div id="gbtn"></div><p id="gnote" class="msgl"></p><div class="or">ou</div>
+<div class="row2"><button class="btn" id="au_open_login">Entrar com e-mail</button><button class="btn sec" id="au_open_signup">Cadastre-se</button></div>
+<div id="gbtn"></div><p id="gnote" class="msgl"></p><div class="or">ou jogue sem conta</div>
 <div class="set"><label>Seu nome</label><input id="nm" maxlength="18" placeholder="Digite seu nome"></div>
-<div class="row2"><button class="btn" id="bguest">Continuar</button><button class="btn sec small" data-go="role">Voltar</button></div></div></div>
+<div class="row2"><button class="btn sec" id="bguest">Continuar sem conta</button><button class="btn sec small" data-go="role">Voltar</button></div></div></div>
+<div class="scr" id="s_signup" hidden><div class="box"><h1>Cadastre-se</h1><p>Digite o seu e-mail. Vamos enviar um código de 6 dígitos para confirmar que ele é seu.</p>
+<div class="set"><input id="au_email" type="email" autocomplete="email" maxlength="254" placeholder="seu@email.com" style="width:100%"></div>
+<div id="au_err1" class="msgl"></div>
+<div class="row2"><button class="btn" id="au_send">Enviar código</button><button class="btn sec small" data-go="login">Voltar</button></div></div></div>
+<div class="scr" id="s_verify" hidden><div class="box"><h1>Confira o seu e-mail</h1><p>Enviamos um código de 6 dígitos para <b id="au_vmail"></b>. Olhe também a caixa de spam.</p>
+<div class="set"><input id="au_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="width:100%;text-align:center;font-size:34px;letter-spacing:8px"></div>
+<div id="au_err2" class="msgl"></div>
+<div class="row2"><button class="btn" id="au_verify">Verificar</button><button class="btn sec small" id="au_resend">Reenviar código</button><button class="btn sec small" data-go="s_signup">Voltar</button></div></div></div>
+<div class="scr" id="s_setup" hidden><div class="box"><h1>Crie o seu acesso</h1><p>E-mail confirmado! Agora escolha um nome de usuário e uma senha para os próximos logins.</p>
+<div class="stack"><input id="au_user" autocomplete="username" maxlength="16" placeholder="Nome de usuário (3 a 16: letras, números ou _)">
+<input id="au_pass" type="password" autocomplete="new-password" maxlength="72" placeholder="Senha (mínimo 8 caracteres)">
+<input id="au_pass2" type="password" autocomplete="new-password" maxlength="72" placeholder="Repita a senha"></div>
+<div id="au_err3" class="msgl"></div>
+<div class="row2"><button class="btn" id="au_create">Criar conta</button><button class="btn sec small" data-go="login">Cancelar</button></div></div></div>
+<div class="scr" id="s_login" hidden><div class="box"><h1>Entrar</h1>
+<div class="stack"><input id="au_lid" autocomplete="username" maxlength="254" placeholder="E-mail ou nome de usuário">
+<input id="au_lpw" type="password" autocomplete="current-password" maxlength="72" placeholder="Senha"></div>
+<div id="au_err4" class="msgl"></div>
+<div class="row2"><button class="btn" id="au_login">Entrar</button><button class="btn sec small" data-go="login">Voltar</button></div></div></div>
 <div class="scr" id="shome" hidden><div class="box"><h1 id="shi"></h1><p>Digite o código do lobby do seu professor</p>
 <div class="set"><input id="lcode" maxlength="6" placeholder="CÓDIGO" style="text-transform:uppercase;text-align:center;font-size:32px;letter-spacing:6px;width:100%"></div>
 <div id="smsg" class="msgl"></div>
@@ -440,7 +463,7 @@ if(match.spec)P.alive=false;if(!P.q)P.q=nq();
 P.ry=0;P.pitch=0;P.hh=2.8;shots.forEach(s=>S.remove(s.m));shots=[];target=null;over=false;timeLeft=match.dur;$("tp").hidden=true;$("hitfx").hidden=true;hud()}
 /* estados: início, jogo, pausa, fim */
 function updHint(){$("hint").hidden=true}
-const SCR=["menu","role","login","shome","tcfg","room","pause","end"];
+const SCR=["menu","role","login","s_signup","s_verify","s_setup","s_login","shome","tcfg","room","pause","end"];
 function setState(x){state=x;const st=$("stage");st.dataset.s=x;st.dataset.spec=(match.spec&&(x==="play"||x==="pause"))?"1":"";for(const k of SCR)$(k).hidden=k!==x;$("board").hidden=!(match.spec&&x==="play");updHint()}
 const unlock=()=>{if(document.pointerLockElement===cv){intentional=true;try{document.exitPointerLock()}catch(_){}}};
 const lock=()=>{if(noLock||state!=="play"||match.spec)return;try{const p=cv.requestPointerLock();if(p&&p.catch)p.catch(()=>{})}catch(_){}};
@@ -504,7 +527,7 @@ if(!GOOGLE_CLIENT_ID){fb();return}
 const go=()=>{try{google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:onCred});google.accounts.id.renderButton(box,{theme:"filled_blue",size:"large",shape:"pill",text:"signin_with",width:280})}catch(_){fb()}};
 if(window.google&&google.accounts){go();return}
 const sc=document.createElement("script");sc.src="https://accounts.google.com/gsi/client";sc.async=true;sc.onload=go;sc.onerror=fb;document.head.appendChild(sc)}
-function goLogin(role){roleSel=role;$("ltit").textContent="Entrar como "+(role==="prof"?"professor":"estudante");const sv=LS.get("mindshot.profile");$("nm").value=sv&&sv.name?sv.name:"";setState("login");initGoogle()}
+function goLogin(role){roleSel=role;if(AUTH.user){finishLogin({name:AUTH.user.username,email:AUTH.user.email,acct:true});return}$("ltit").textContent="Entrar como "+(role==="prof"?"professor":"estudante");const sv=LS.get("mindshot.profile");$("nm").value=sv&&sv.name?sv.name:"";setState("login");initGoogle()}
 function finishLogin(pf){profile=Object.assign({role:roleSel},pf);LS.set("mindshot.profile",{name:pf.name,email:pf.email});$("tmsg").textContent="";if(roleSel==="prof")setState("tcfg");else{$("shi").textContent="Olá, "+profile.name+"!";$("smsg").textContent="";setState("shome")}}
 function renderRoom(){const b=buildBank(lobby),isP=profile.role==="prof",pl=lobby.players||[],hum=pl.filter(p=>!(p.role==="prof"&&!lobby.play));
 $("rcode").textContent=lobby.code;$("rinfo").textContent=lobby.name+" · "+hum.length+"/"+lobby.max+" jogadores · "+lobby.dur+" min · "+b.length+" perguntas";
@@ -526,6 +549,36 @@ $("tmsg").textContent="Criando lobby…";netSend({t:"create",name:$("lname").val
 $("brun").onclick=()=>netSend({t:"start"});
 $("bcopy").onclick=()=>{try{navigator.clipboard.writeText(lobby.code)}catch(_){}$("bcopy").textContent="Copiado!"};
 $("brback").onclick=()=>{netSend({t:"leave"});LS.set("mindshot.session",null);net.sess=null;lobby=null;setState(profile.role==="prof"?"tcfg":"shome")};
+/* ===== CONTA POR E-MAIL (cadastro com código, senha e login) ===== */
+const AUTH={tok:LS.get("mindshot.token"),user:null,signupTok:"",email:"",cd:0,timer:null};
+async function apiCall(path,body){let r;try{r=await fetch("/api/"+path,{method:body?"POST":"GET",headers:Object.assign({"Content-Type":"application/json"},AUTH.tok?{Authorization:"Bearer "+AUTH.tok}:{}),body:body?JSON.stringify(body):undefined})}catch(_){throw new Error("Sem conexão com o servidor. Abra o jogo pelo endereço do servidor (http://...).")}
+let j={};try{j=await r.json()}catch(_){}if(!r.ok)throw new Error(j.error||("Erro "+r.status));return j}
+function authUi(){const b=$("au_logout");b.hidden=!AUTH.user;b.textContent="Sair da conta ("+(AUTH.user?AUTH.user.username:"")+")"}
+function setAuth(j){AUTH.tok=j.token;LS.set("mindshot.token",j.token);AUTH.user=j.user;authUi();finishLogin({name:j.user.username,email:j.user.email,acct:true})}
+const setErr=(id,t)=>{$(id).textContent=t||""};
+const validEmail=e=>/^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(e);
+function cdStart(){AUTH.cd=30;clearInterval(AUTH.timer);const b=$("au_resend");b.disabled=true;b.textContent="Reenviar em 30s";
+AUTH.timer=setInterval(()=>{AUTH.cd--;if(AUTH.cd<=0){clearInterval(AUTH.timer);b.disabled=false;b.textContent="Reenviar código"}else b.textContent="Reenviar em "+AUTH.cd+"s"},1000)}
+async function sendCode(){const em=$("au_email").value.trim().toLowerCase();if(!validEmail(em)){setErr("au_err1","Digite um e-mail válido.");return}
+setErr("au_err1","Enviando o código…");$("au_send").disabled=true;
+try{await apiCall("auth/start",{email:em});AUTH.email=em;$("au_vmail").textContent=em;$("au_code").value="";setErr("au_err1","");setErr("au_err2","");cdStart();setState("s_verify")}
+catch(e){setErr("au_err1",e.message)}finally{$("au_send").disabled=false}}
+$("au_send").onclick=sendCode;
+$("au_resend").onclick=async()=>{if(AUTH.cd>0)return;setErr("au_err2","Reenviando…");try{await apiCall("auth/start",{email:AUTH.email});setErr("au_err2","Novo código enviado.");cdStart()}catch(e){setErr("au_err2",e.message)}};
+$("au_verify").onclick=async()=>{const code=$("au_code").value.replace(/\D/g,"");if(code.length!==6){setErr("au_err2","Digite o código de 6 dígitos.");return}setErr("au_err2","Verificando…");
+try{const j=await apiCall("auth/verify",{email:AUTH.email,code});AUTH.signupTok=j.signupToken;setErr("au_err2","");$("au_user").value="";$("au_pass").value="";$("au_pass2").value="";setErr("au_err3","");setState("s_setup")}catch(e){setErr("au_err2",e.message)}};
+$("au_create").onclick=async()=>{const u=$("au_user").value.trim(),p=$("au_pass").value;
+if(!/^[A-Za-z0-9_]{3,16}$/.test(u)){setErr("au_err3","Usuário: 3 a 16 letras, números ou _.");return}
+if(p.length<8){setErr("au_err3","A senha precisa ter pelo menos 8 caracteres.");return}
+if(p!==$("au_pass2").value){setErr("au_err3","As senhas não são iguais.");return}
+setErr("au_err3","Criando a conta…");try{setAuth(await apiCall("auth/register",{signupToken:AUTH.signupTok,username:u,password:p}))}catch(e){setErr("au_err3",e.message)}};
+$("au_login").onclick=async()=>{const id=$("au_lid").value.trim(),p=$("au_lpw").value;if(!id||!p){setErr("au_err4","Preencha e-mail ou usuário e a senha.");return}
+setErr("au_err4","Entrando…");try{setAuth(await apiCall("auth/login",{id,password:p}))}catch(e){setErr("au_err4",e.message)}};
+$("au_open_signup").onclick=()=>{setErr("au_err1","");$("au_email").value="";setState("s_signup")};
+$("au_open_login").onclick=()=>{setErr("au_err4","");setState("s_login")};
+$("au_logout").onclick=()=>{AUTH.tok=null;AUTH.user=null;LS.set("mindshot.token",null);authUi()};
+for(const [id,btn] of [["au_email","au_send"],["au_code","au_verify"],["au_pass2","au_create"],["au_lpw","au_login"]])$(id).addEventListener("keydown",e=>{if(e.key==="Enter")$(btn).click()});
+if(AUTH.tok)apiCall("me").then(j=>{AUTH.user=j.user;authUi()}).catch(e=>{if(/inválida|encontrada/.test(e.message)){AUTH.tok=null;LS.set("mindshot.token",null)}authUi()});else authUi();
 /* entrada */
 document.addEventListener("pointerlockchange",()=>{if(document.pointerLockElement===cv){everLocked=true;lockFails=0;noLock=false}else if(intentional)intentional=false;else if(state==="play")pause();updHint()});
 document.addEventListener("pointerlockerror",()=>{lockFails++;updHint();void 0});
