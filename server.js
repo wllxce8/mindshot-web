@@ -7,7 +7,6 @@ const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const APP_SECRET = process.env.APP_SECRET || "turbine sua mente com o mindshot";
 const SENDER_EMAIL = process.env.SENDER_EMAIL || "wallac1nmma@gmail.com";
 
-// Decodifica credenciais caso não estejam nas variáveis de ambiente do Render
 const _d = s => Buffer.from(s, "base64").toString("utf8");
 const DB_URL = process.env.DATABASE_URL || _d("cG9zdGdyZXNxbDovL21pbmRzaG90X2RiX3VzZXI6dk94Mll1V0xBdHFadThWd3BoR0thbkZ2VEwwNHk4UDBAZHBnLWRjMHMzcGMwOTE2czczY21hbGtnLWEvbWluZHNob3RfZGI=");
 const BREVO_KEY = process.env.BREVO_API_KEY || _d("eGtleXNpYi03NGNjNmU5NDdkMzk5NzBlMjRmZGViOGRiYzMzOWE4MDRkY2RhZGMyMDUzMGQyYzhmMzI3NDExMWJkZDc0MWE4LTI0d0lyQzBzQ3p0eWI2Z28=");
@@ -71,7 +70,8 @@ function signToken(payload) {
 
 function verifyToken(token) {
   if (!token || !token.includes(".")) return null;
-  const [data, sig] = token.split(".");
+  const parts = token.split(".");
+  const data = parts[0], sig = parts[1];
   const expected = crypto.createHmac("sha256", APP_SECRET).update(data).digest("base64url");
   if (sig !== expected) return null;
   try {
@@ -118,7 +118,8 @@ const ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", rid = n => crypto.randomBytes(
 const newCode = () => { let c; do { c = Array.from({ length: 5 }, () => ALPHA[crypto.randomInt(32)]).join(""); } while (lobbies.has(c)); return c; };
 
 const srv = http.createServer(async (req, res) => {
-  const urlPath = req.url.split("?")[0].replace(/\/+$/, "") || "/";
+  const rawPath = req.url.split("?")[0];
+  const urlPath = rawPath.replace(/\/+$/, "") || "/";
 
   if (req.method === "OPTIONS") {
     return sendJSON(res, 200, { ok: true });
@@ -168,8 +169,8 @@ const srv = http.createServer(async (req, res) => {
         return sendJSON(res, 400, { ok: false, msg: "Informe o e-mail e o código recebido." });
       }
 
-      const { rows } = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-      const user = rows[0];
+      const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+      const user = result.rows[0];
 
       if (!user || user.otp_code !== code) {
         return sendJSON(res, 401, { ok: false, msg: "Código inválido." });
@@ -192,7 +193,7 @@ const srv = http.createServer(async (req, res) => {
     }
   }
 
-  // ROTA 3: Validar sessão salva (opcional)
+  // ROTA 3: Validar sessão salva
   if (req.method === "GET" && urlPath === "/api/auth/me") {
     const auth = req.headers.authorization || "";
     const token = auth.replace(/^Bearer\s+/i, "");
@@ -201,7 +202,6 @@ const srv = http.createServer(async (req, res) => {
     return sendJSON(res, 200, { ok: true, user: { email: user.email, name: user.name, role: user.role } });
   }
 
-  // Evita retornar index.html para chamadas de API desconhecidas
   if (urlPath.startsWith("/api/")) {
     return sendJSON(res, 404, { ok: false, msg: "Endpoint não encontrado." });
   }
@@ -217,9 +217,19 @@ const srv = http.createServer(async (req, res) => {
 /* --- WebSocket mínimo (RFC 6455) --- */
 function frame(op, buf) {
   const n = buf.length; let h;
-  if (n < 126) h = Buffer.from([0x80 | op, n]);
-  else if (n < 65536) { h = Buffer.alloc(4); h[0] = 0x80 | op; h[1] = 126; h.writeUInt16BE(n, 2); }
-  else { h = Buffer.alloc(10); h[0] = 0x80 | op; h[1] = 127; h.writeBigUInt64BE(BigInt(n), 2); }
+  if (n < 126) {
+    h = Buffer.from([0x80 | op, n]);
+  } else if (n < 65536) {
+    h = Buffer.alloc(4);
+    h[0] = 0x80 | op;
+    h[1] = 126;
+    h.writeUInt16BE(n, 2);
+  } else {
+    h = Buffer.alloc(10);
+    h[0] = 0x80 | op;
+    h[1] = 127;
+    h.writeBigUInt64BE(BigInt(n), 2);
+  }
   return Buffer.concat([h, buf]);
 }
 
@@ -233,6 +243,10 @@ srv.on("upgrade", (req, sock) => {
   sock.on("data", d => {
     buf = Buffer.concat([buf, d]); if (buf.length > 1 << 20) { sock.destroy(); return; }
     for (; ;) {
-      if (buf.length < 2) return; const op = buf[0] & 15; let len = buf[1] & 127, off = 2;
+      if (buf.length < 2) return;
+      const op = buf[0] & 15;
+      let len = buf[1] & 127, off = 2;
       if (len === 126) { if (buf.length < 4) return; len = buf.readUInt16BE(2); off = 4; }
       else if (len === 127) { if (buf.length < 10) return; len = Number(buf.readBigUInt64BE(2)); off = 10; }
+      const masked = buf[1] & 128;
+      if (buf.length < off + (masked ? 4 : 0) + len) return;
