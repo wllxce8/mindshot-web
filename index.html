@@ -572,7 +572,10 @@ function pause(){if(state!=="play")return;keys={};if(document.activeElement&&doc
 function resume(){if(state!=="pause")return;setState("play");lock()}
 function home(){if(match.online&&lobby&&profile&&profile.role==="prof"&&state!=="end")netSend({t:"end"});unlock();reset();setState("menu")}
 function endMatch(){over=true;cancel(P);$("hitfx").hidden=true;if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();unlock();const r=ranked();
-$("etit").textContent=r[0].me?"Vitória!":"Fim da partida";$("esub").textContent="Vencedor: "+r[0].name+" com "+r[0].pts+" pontos";$("endt").innerHTML=tableHTML();setState("end")}
+let rewardTxt="";
+if(match.online&&!match.spec){const pos=r.findIndex(x=>x.me);if(pos>=0&&pos<3){INV.wins++;if(INV.wins%3===0){INV.crates++;rewardTxt=" · 🎁 Você ganhou 1 Caixa por ficar no Top 3 (3x)!"}else{rewardTxt=" · 🏆 Top "+(pos+1)+"! ("+(INV.wins%3)+"/3 para próxima caixa)"}saveInv()}}
+$("etit").textContent=r[0].me?"Vitória!":"Fim da partida";$("esub").textContent="Vencedor: "+r[0].name+" com "+r[0].pts+" pontos"+rewardTxt;$("endt").innerHTML=tableHTML();setState("end")}
+
 function showBoard(on){if(match.spec||(on&&state!=="play"))return;$("board").hidden=!on;bt=0}
 function setQ(q){const r={alta:Math.min(devicePixelRatio||1,2),media:1.25,baixa:1}[q],m={alta:4096,media:2048,baixa:1024}[q];R.setPixelRatio(r);R.setSize($("stage").clientWidth,$("stage").clientHeight,false);L.shadow.mapSize.set(m,m);if(L.shadow.map){L.shadow.map.dispose();L.shadow.map=null}}
 /* contas, professor e lobbies */
@@ -677,7 +680,42 @@ $("au_open_signup").onclick=()=>{setErr("au_err1","");$("au_email").value="";set
 $("au_open_login").onclick=()=>{setErr("au_err4","");setState("s_login")};
 $("au_logout").onclick=()=>{AUTH.tok=null;AUTH.user=null;LS.set("mindshot.token",null);authUi()};
 for(const [id,btn] of [["au_email","au_send"],["au_code","au_verify"],["au_pass2","au_create"],["au_lpw","au_login"]])$(id).addEventListener("keydown",e=>{if(e.key==="Enter")$(btn).click()});
-if(AUTH.tok)apiCall("me").then(j=>{AUTH.user=j.user;authUi()}).catch(e=>{if(/inválida|encontrada/.test(e.message)){AUTH.tok=null;LS.set("mindshot.token",null)}authUi()});else authUi();
+if(AUTH.tok)apiCall("me").then(j=>{AUTH.user=j.user;if(j.inv)INV=Object.assign(defInv(),j.inv);authUi()}).catch(e=>{if(/inválida|encontrada/.test(e.message)){AUTH.tok=null;LS.set("mindshot.token",null)}authUi()});else{authUi();INV=loadGuestInv()}
+const origSetAuth=setAuth;setAuth=j=>{if(j.inv)INV=Object.assign(defInv(),j.inv);origSetAuth(j)};
+const origLogout=$("au_logout").onclick;$("au_logout").onclick=()=>{origLogout();INV=loadGuestInv()};
+function renderSkins(){
+const prog=INV.wins%3;
+$("sk_stat").innerHTML=`Pódios (Top 3 em lobbies): <b>${INV.wins}</b> (${prog}/3 para próxima caixa) · Caixas disponíveis: <b>${INV.crates}</b>`+(AUTH.user?"":" · <i>Modo visitante (salvo só nesta guia)</i>");
+$("sk_open_crate").hidden=INV.crates<=0;
+const list=$("sk_list");list.innerHTML="";
+const eqId=skTab==="w"?INV.eqW:INV.eqC;
+for(const s of SKINS[skTab]){
+const has=INV.own.includes(s.id),eq=eqId===s.id;
+const d=document.createElement("button");d.className="skcard"+(eq?" eq":"")+(has?"":" lk");
+const badge=s.t==="base"?"Padrão":s.t.toUpperCase();
+d.innerHTML=`<small class="t-${s.t}">${badge}</small><b>${s.n}</b><small>${eq?"✔ Equipado":has?"Clique para equipar":"🔒 Bloqueado"}</small>`;
+if(has)d.onclick=()=>{if(skTab==="w")INV.eqW=s.id;else INV.eqC=s.id;saveInv();renderSkins()};
+list.appendChild(d);
+}}
+function openSkins(from){skBack=from;$("sk_crate_res").hidden=true;renderSkins();setState("skins")}
+$("bskins1").onclick=()=>openSkins("shome");
+$("bskins2").onclick=()=>openSkins("tcfg");
+$("sk_back").onclick=()=>setState(skBack);
+$("sk_tab_w").onclick=()=>{skTab="w";renderSkins()};
+$("sk_tab_c").onclick=()=>{skTab="c";renderSkins()};
+$("sk_open_crate").onclick=()=>{
+if(INV.crates<=0)return;INV.crates--;
+const roll=rnd();const tier=roll<.55?"bronze":roll<.88?"prata":"ouro";
+const pool=[...SKINS.w,...SKINS.c].filter(x=>x.t===tier);
+const drop=pool[(rnd()*pool.length)|0];
+const isNew=!INV.own.includes(drop.id);
+if(isNew)INV.own.push(drop.id);
+saveInv();
+const res=$("sk_crate_res");res.hidden=false;
+res.innerHTML=`Você abriu uma <b class="t-${tier}">CAIXA DE ${tier.toUpperCase()}</b> e ganhou: <b class="t-${tier}">${drop.n}</b>! ${isNew?"(NOVA SKIN!)":"(Repetida)"}`;
+renderSkins();sfx(tier==="ouro"?1100:tier==="prata"?800:550,.4,"triangle",.15,tier==="ouro"?1600:900);
+};
+
 /* entrada */
 document.addEventListener("pointerlockchange",()=>{if(document.pointerLockElement===cv){everLocked=true;lockFails=0;noLock=false}else if(intentional)intentional=false;else if(state==="play")pause();updHint()});
 document.addEventListener("pointerlockerror",()=>{lockFails++;updHint();void 0});
