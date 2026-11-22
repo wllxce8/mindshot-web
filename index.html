@@ -87,6 +87,15 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #stage[data-spec="1"] #hudl,#stage[data-spec="1"] .panel,#stage[data-spec="1"] #cross{display:none}
 #stage[data-spec="1"] #board{left:auto;right:16px;top:90px;transform:none;width:min(520px,46vw)}
 #err{position:absolute;left:10px;right:10px;bottom:76px;z-index:60;color:#ff9e94;background:rgba(0,0,0,.78);padding:8px 12px;border-radius:10px;font:14px monospace;-webkit-user-select:text;user-select:text}
+.skgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;margin:10px 0;max-height:46vh;overflow:auto;padding:4px}
+.skcard{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);border-radius:14px;padding:10px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:16px;color:#fff;font-family:inherit}
+.skcard.eq{border-color:#ffd400;background:rgba(255,212,0,.18)}
+.skcard.lk{opacity:.42;cursor:not-allowed}
+.t-bronze{color:#cd7f32}.t-prata{color:#d8e2ec}.t-ouro{color:#ffd400;text-shadow:0 0 8px rgba(255,212,0,.6)}
+.crbox{padding:14px;border-radius:16px;background:rgba(255,255,255,.08);border:2px solid #ffd400;margin:10px 0}
+@keyframes pop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+.pop{animation:pop .35s ease-out}
+
 </style>
 </head>
 <body>
@@ -145,7 +154,9 @@ input,textarea{-webkit-user-select:text;user-select:text}
 <div class="set"><input id="lcode" maxlength="6" placeholder="CÓDIGO" style="text-transform:uppercase;text-align:center;font-size:32px;letter-spacing:6px;width:100%"></div>
 <div id="smsg" class="msgl"></div>
 <div class="row2"><button class="btn" id="bjoin">Entrar no lobby</button><button class="btn sec" id="bfree">Treino livre</button></div>
-<div class="row2"><button class="btn sec small" data-go="role">Trocar perfil</button></div></div></div>
+<div class="row2"><button class="btn" id="bskins1">🎨 Skins &amp; Caixas</button></div>
+
+ <div class="row2"><button class="btn sec small" data-go="role">Trocar perfil</button></div></div></div>
 <div class="scr" id="tcfg" hidden><div class="box wide"><h1>Criar lobby</h1>
 <div class="set"><label>Nome do lobby</label><input id="lname" value="Aula de Mindshot" maxlength="30"></div>
 <div class="set"><label>Máximo de jogadores: <b id="lmv">6</b></label><input id="lmax" type="range" min="2" max="12" value="6"></div>
@@ -156,10 +167,19 @@ input,textarea{-webkit-user-select:text;user-select:text}
 <div class="set"><label><input type="checkbox" id="lplay"> Eu também vou jogar (senão, só assisto)</label></div>
 <div id="tmsg" class="msgl"></div>
 <div class="row2"><button class="btn" id="bmk">Criar lobby</button><button class="btn sec small" data-go="role">Voltar</button></div></div></div>
-<div class="scr" id="room" hidden><div class="box wide"><h1>Lobby <span id="rcode"></span></h1><p id="rinfo"></p><div id="rlist"></div>
+<div class="row2"><button class="btn" id="bskins2">🎨 Skins &amp; Caixas</button></div>
+
+ <div class="scr" id="room" hidden><div class="box wide"><h1>Lobby <span id="rcode"></span></h1><p id="rinfo"></p><div id="rlist"></div>
 <p class="note">A cada vida perdida, o jogador recebe uma pergunta sorteada do banco deste lobby. Alunos de qualquer computador ou rede entram pelo código.</p><div id="rmsg" class="msgl"></div>
 <div class="row2"><button class="btn" id="brun">Iniciar partida</button><button class="btn sec small" id="bcopy">Copiar código</button><button class="btn sec small" id="brback">Voltar</button></div></div></div>
-<div id="err" hidden></div>
+<div class="scr" id="skins" hidden><div class="box wide"><h1>Skins &amp; Caixas</h1>
+<p id="sk_stat"></p>
+<div class="row2"><button class="btn small" id="sk_open_crate" hidden>🎁 Abrir Caixa!</button><button class="btn sec small" id="sk_tab_w">✏️ Ferramentas</button><button class="btn sec small" id="sk_tab_c">👕 Personagem</button></div>
+<div id="sk_crate_res" class="crbox pop" hidden></div>
+<div id="sk_list" class="skgrid"></div>
+<div class="row2"><button class="btn" id="sk_back">Voltar</button></div></div></div>
+
+ <div id="err" hidden></div>
 <div id="ld">Gerando texturas…</div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
