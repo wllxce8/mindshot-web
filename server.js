@@ -5,7 +5,7 @@ const _d=s=>Buffer.from(s,"base64").toString("utf8");
 const DB_URL=process.env.DATABASE_URL||_d("cG9zdGdyZXNxbDovL21pbmRzaG90X2RiX3VzZXI6dk94Mll1V0xBdHFadThWd3BoR0thbkZ2VEwwNHk4UDBAZHBnLWRjMHMzcGMwOTE2czczY21hbGtnLWEvbWluZHNob3RfZGI=");
 const BREVO_KEY=process.env.BREVO_API_KEY||_d("eGtleXNpYi03NGNjNmU5NDdkMzk5NzBlMjRmZGViOGRiYzMzOWE4MDRkY2RhZGMyMDUzMGQyYzhmMzI3NDExMWJkZDc0MWE4LTI0d0lyQzBzQ3p0eWI2Z28=");
 const pool=new Pool({connectionString:DB_URL,ssl:DB_URL.includes("render.com")?{rejectUnauthorized:false}:false});
-pool.query("CREATE TABLE IF NOT EXISTS users(email VARCHAR(255) PRIMARY KEY,username VARCHAR(30),pass_hash TEXT,name VARCHAR(100),role VARCHAR(20) DEFAULT 'stu',otp_code VARCHAR(10),otp_expires BIGINT);ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(30),ADD COLUMN IF NOT EXISTS pass_hash TEXT").then(()=>console.log("DB OK")).catch(e=>console.error("DB ERRO:",e.message));
+pool.query("CREATE TABLE IF NOT EXISTS users(email VARCHAR(255) PRIMARY KEY,username VARCHAR(30),pass_hash TEXT,name VARCHAR(100),role VARCHAR(20) DEFAULT 'stu',otp_code VARCHAR(10),otp_expires BIGINT,inv_data TEXT);ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(30),ADD COLUMN IF NOT EXISTS pass_hash TEXT,ADD COLUMN IF NOT EXISTS inv_data TEXT").then(()=>console.log("DB OK")).catch(e=>console.error("DB ERRO:",e.message));
 
 const readBody=req=>new Promise((res,rej)=>{let d="";req.on("data",c=>{d+=c;if(d.length>1e5)rej(new Error("Grande"))});req.on("end",()=>{try{res(d?JSON.parse(d):{})}catch{res({})}});req.on("error",rej)});
 const sendJSON=(res,st,o)=>{res.writeHead(st,{"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,POST,OPTIONS","Access-Control-Allow-Headers":"Content-Type,Authorization"});res.end(JSON.stringify(o))};
@@ -23,6 +23,7 @@ const srv=http.createServer(async(req,res)=>{
     try{const b=await readBody(req),email=String(b.email||"").trim().toLowerCase(),code=String(b.code||b.otp||b.token||"").trim();
         if(b.signupToken){const tk=verifyToken(b.signupToken);if(!tk||!tk.email)return sendJSON(res,401,{error:"Sessão expirada."});const un=String(b.username||"").trim(),ph=crypto.scryptSync(String(b.password||""),APP_SECRET,32).toString("hex");await pool.query("UPDATE users SET username=$1,pass_hash=$2,name=$1 WHERE email=$3",[un,ph,tk.email]);const usr={email:tk.email,username:un};return sendJSON(res,200,{token:signToken(usr),user:usr})}
 if(b.id&&b.password){const id=String(b.id).trim().toLowerCase(),ph=crypto.scryptSync(String(b.password),APP_SECRET,32).toString("hex");const r=await pool.query("SELECT * FROM users WHERE LOWER(email)=$1 OR LOWER(username)=$1",[id]),u=r.rows.at(0);if(!u||u.pass_hash!==ph)return sendJSON(res,401,{error:"Dados incorretos."});const usr={email:u.email,username:u.username||u.email.split("@").at(0)};return sendJSON(res,200,{token:signToken(usr),user:usr})}
+if(u==="/api/inv"){const usr=verifyToken((req.headers.authorization||"").replace(/^Bearer\s+/i,""));if(!usr)return sendJSON(res,401,{error:"Não autorizado."});await pool.query("UPDATE users SET inv_data=$1 WHERE email=$2",[JSON.stringify(b.inv||{}),usr.email]);return sendJSON(res,200,{ok:true})}
 
       if(code){
         const name=String(b.name||b.player||"").replace(/[<>]/g,"").trim().slice(0,30),role=b.role==="prof"?"prof":"stu";
@@ -42,7 +43,8 @@ if(b.id&&b.password){const id=String(b.id).trim().toLowerCase(),ph=crypto.scrypt
       return sendJSON(res,200,{ok:true,msg:"Código enviado! Verifique seu e-mail."});
     }catch(e){console.error("ERRO AUTH:",e);return sendJSON(res,500,{ok:false,error:e.message,msg:"Erro ao enviar: "+e.message})}
   }
-  if(req.method==="GET"&&u.includes("me")){const usr=verifyToken((req.headers.authorization||"").replace(/^Bearer\s+/i,""));return usr?sendJSON(res,200,{ok:true,user:usr}):sendJSON(res,401,{ok:false})}
+  if(req.method==="GET"&&u.includes("me")){const usr=verifyToken((req.headers.authorization||"").replace(/^Bearer\s+/i,""));if(!usr)return sendJSON(res,401,{ok:false});const r=await pool.query("SELECT inv_data FROM users WHERE email=$1",[usr.email]);let inv=null;try{inv=r.rows&&r.rows[0]&&r.rows[0].inv_data?JSON.parse(r.rows[0].inv_data):null}catch{}return sendJSON(res,200,{ok:true,user:usr,inv})}
+
   fs.readFile(path.join(__dirname,"index.html"),(e,d)=>{if(e){res.writeHead(404);res.end("index.html não encontrado");return}res.writeHead(200,{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-cache"});res.end(d)});
 });
 function frame(op,buf){const n=buf.length;let h;if(n<126)h=Buffer.from([0x80|op,n]);else if(n<65536){h=Buffer.alloc(4);h.writeUInt8(0x80|op,0);h.writeUInt8(126,1);h.writeUInt16BE(n,2)}else{h=Buffer.alloc(10);h.writeUInt8(0x80|op,0);h.writeUInt8(127,1);h.writeBigUInt64BE(BigInt(n),2)}return Buffer.concat([h,buf])}
