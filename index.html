@@ -337,14 +337,77 @@ const MV=[];
 [[9.5,-17,7.6,"x",2.5],[24,-7,5,"z",1.5]].forEach(([x,z,top,ax,amp])=>{const m=bx(x,top-.3,z,3,.6,3,0xf08a4b,TX.stone),o={x,z,w:3,d:3,b:top-.6,h:top,m,ax,amp,x0:x,z0:z};OB.push(o);MV.push(o)});
 /* lápis, humanoides */
 const OLM=new THREE.MeshBasicMaterial({color:0xffd400,side:THREE.BackSide});
-function pencil(c){const g=new THREE.Group();
-const add=(geo,m,y)=>{const o=new THREE.Mesh(geo,m);o.position.y=y;g.add(o)};
+const SKINS={
+w:[
+{id:"w_def",n:"Lápis Clássico",t:"base",type:"pencil",c:0xf5c542,sc:0x4a90e2},
+{id:"w_red",n:"Lápis Rubi",t:"bronze",type:"pencil",c:0xe63946,sc:0xe63946},
+{id:"w_grn",n:"Lápis Esmeralda",t:"bronze",type:"pencil",c:0x2a9d8f,sc:0x2a9d8f},
+{id:"w_prp",n:"Lápis Ametista",t:"bronze",type:"pencil",c:0x8338ec,sc:0x8338ec},
+{id:"w_pen_b",n:"Caneta Esferográfica",t:"prata",type:"pen",c:0x1d4ed8,sc:0x3b82f6},
+{id:"w_pen_s",n:"Caneta Executiva",t:"prata",type:"pen",c:0xcbd5e1,sc:0x94a3b8},
+{id:"w_wand_e",n:"Varinha Sabugueiro",t:"ouro",type:"wand",c:0x5c4033,sc:0x38bdf8,fx:0x38bdf8},
+{id:"w_wand_f",n:"Varinha Fênix",t:"ouro",type:"wand",c:0x7f1d1d,sc:0xfbbf24,fx:0xff9e00},
+{id:"w_pen_g",n:"Caneta Astral",t:"ouro",type:"pen",c:0xffd400,sc:0xfef08a,fx:0xd946ef}
+],
+c:[
+{id:"c_def",n:"Uniforme Azul",t:"base",shirt:0x4a90e2,pants:0x35476b},
+{id:"c_red",n:"Camisa Carmesim",t:"bronze",shirt:0xd62828,pants:0x2b2d42},
+{id:"c_grn",n:"Camisa Floresta",t:"bronze",shirt:0x2b9348,pants:0x1b4332},
+{id:"c_ylw",n:"Camisa Solar",t:"bronze",shirt:0xf77f00,pants:0x264653},
+{id:"c_spike",n:"Jaqueta Espinhos",t:"prata",shirt:0x1e293b,pants:0x0f172a,det:"spikes"},
+{id:"c_armor",n:"Armadura Cavaleiro",t:"prata",shirt:0x94a3b8,pants:0x475569,det:"armor"},
+{id:"c_gold",n:"Manto Estelar",t:"ouro",shirt:0xffb703,pants:0x3a0ca3,det:"armor",fx:0xffd400},
+{id:"c_void",n:"Traje Arcano",t:"ouro",shirt:0x4c1d95,pants:0x1e1b4b,det:"spikes",fx:0xc084fc}
+]};
+const defInv=()=>({wins:0,crates:0,own:["w_def","c_def"],eqW:"w_def",eqC:"c_def"});
+let INV=defInv(),skTab="w",skBack="shome";
+function loadGuestInv(){try{const s=sessionStorage.getItem("mindshot.ginv");return s?Object.assign(defInv(),JSON.parse(s)):defInv()}catch{return defInv()}}
+function saveInv(){if(AUTH.tok)apiCall("inv",{inv:INV}).catch(()=>{});else try{sessionStorage.setItem("mindshot.ginv",JSON.stringify(INV))}catch{}}
+const getSk=(cat,id)=>SKINS[cat].find(x=>x.id===id)||SKINS[cat][0];
+function buildWeapon(sk,isView){
+const g=new THREE.Group(),add=(geo,m,y)=>{const o=new THREE.Mesh(geo,m);o.position.y=y;g.add(o);return o};
+if(sk.type==="pen"){
+add(new THREE.CylinderGeometry(.42,.42,2.1,12),MT(sk.c,{roughness:.3,metalness:.4}),1.3);
+add(new THREE.CylinderGeometry(.45,.45,.25,12),MT(0xe2e8f0,{metalness:.8,roughness:.2}),2.4);
+add(new THREE.ConeGeometry(.42,.75,12),MT(0xe2e8f0,{metalness:.8,roughness:.2}),2.85);
+add(new THREE.ConeGeometry(.12,.25,8),MT(sk.sc),3.3);
+const clp=add(new THREE.BoxGeometry(.12,1.1,.25),MT(0xe2e8f0,{metalness:.8}),1.7);clp.position.x=.46;
+}else if(sk.type==="wand"){
+add(new THREE.CylinderGeometry(.32,.52,.8,10),MT(0x2d1b11,{roughness:.8}),.4);
+add(new THREE.CylinderGeometry(.26,.32,.2,10),MT(0xffd400,{metalness:.8}),.85);
+add(new THREE.CylinderGeometry(.12,.26,2.3,10),MT(sk.c,{roughness:.6}),2.1);
+add(new THREE.SphereGeometry(.22,12,10),new THREE.MeshBasicMaterial({color:sk.fx||0x38bdf8}),3.35);
+}else{
 add(new THREE.CylinderGeometry(.55,.55,.4,6),MT(0xf4a6b8),.2);
 add(new THREE.CylinderGeometry(.56,.56,.2,6),MT(0xb8c0cc,{metalness:.5}),.5);
-add(new THREE.CylinderGeometry(.55,.55,1.8,6),MT(c),1.5);
+add(new THREE.CylinderGeometry(.55,.55,1.8,6),MT(sk.c),1.5);
 add(new THREE.ConeGeometry(.55,.7,6),MT(0xe8c99b),2.75);
 add(new THREE.ConeGeometry(.17,.3,6),MT(0x333842),3.25);
+}
+if(sk.fx){const gl=new THREE.PointLight(sk.fx,isView?1.4:1.8,4);gl.position.y=3.2;g.add(gl)}
 return g}
+function pencil(c){return buildWeapon(SKINS.w[0],false)}
+function applyCharSkin(h,sk){
+if(!h||!h.shirtM)return;
+h.shirtM.color.setHex(sk.shirt);h.pantsM.color.setHex(sk.pants);
+if(h.extra){h.upper.remove(h.extra);h.extra=null}
+if(sk.det||sk.fx){
+const ex=new THREE.Group();
+if(sk.det==="spikes"){
+const spM=MT(0xcbd5e1,{metalness:.85,roughness:.2});
+for(const y of [.3,.55,.8])for(const x of [-.14,.14]){const sp=new THREE.Mesh(new THREE.ConeGeometry(.09,.35,6),spM);sp.position.set(x,y,-.28);sp.rotation.x=-1.1;ex.add(sp)}
+}else if(sk.det==="armor"){
+const arM=MT(0xe2e8f0,{metalness:.85,roughness:.25});
+for(const sx of [-.53,.53]){const sh=new THREE.Mesh(new THREE.SphereGeometry(.24,10,8,0,Math.PI*2,0,Math.PI/2),arM);sh.position.set(sx,.92,0);ex.add(sh)}
+const ch=new THREE.Mesh(new THREE.BoxGeometry(.68,.55,.46),arM);ch.position.set(0,.58,0);ex.add(ch);
+}
+if(sk.fx){const aura=new THREE.PointLight(sk.fx,1.5,4.5);aura.position.set(0,.7,0);ex.add(aura)}
+h.upper.add(ex);h.extra=ex;
+}}
+function setWeaponSkin(h,sk,isView){
+if(isView){if(vp)vw.remove(vp);vp=buildWeapon(sk,true);vp.scale.setScalar(.26);vp.rotation.x=-Math.PI/2;vp.position.set(.3,-.3,-.35);vp.add(hand);vp.add(arm);vw.add(vp);return}
+if(!h||!h.fR)return;if(h.wMesh)h.fR.remove(h.wMesh);const w=buildWeapon(sk,false);w.scale.setScalar(.2);w.rotation.x=Math.PI;w.position.y=-.45;h.fR.add(w);h.wMesh=w}
+
 let hi=0;const HAIR=[0x2a1b12,0x5a3a1e,0x111111,0xb88a3e];
 function faceTex(skin){const c=document.createElement("canvas");c.width=512;c.height=256;const g=c.getContext("2d");
 g.fillStyle="#"+skin.toString(16).padStart(6,"0");g.fillRect(0,0,512,256);
@@ -372,14 +435,16 @@ const hmat=MT(hair,{roughness:.55});
 for(const [ps,pl,tl] of [[0,Math.PI*2,1],[Math.PI,Math.PI,2]]){const hr=new THREE.Mesh(new THREE.SphereGeometry(.345,24,14,ps,pl,0,tl),hmat);hr.position.y=.01;hr.castShadow=true;head.add(hr)}
 const arms=[];for(const sx of [-.53,.53]){const a=grp(upper,sx,.87,0),f=grp(a,0,-.45,0);part(a,sph,shirtM,0,0,0,.14,.14,.14);part(a,upG,shirtM,0,-.225,0);part(f,loG,skinM,0,-.21,0);part(f,sph,skinM,0,-.44,0,.09,.09,.09);arms.push(a,f)}
 const pc=pencil(0xf5c542);pc.scale.setScalar(.2);pc.rotation.x=Math.PI;pc.position.y=-.45;arms[3].add(pc);
-return{g,ols,upper,head,thL:legs[0],shL:legs[1],thR:legs[2],shR:legs[3],aL:arms[0],fL:arms[1],aR:arms[2],fR:arms[3]}}
+return{g,ols,upper,head,thL:legs[0],shL:legs[1],thR:legs[2],shR:legs[3],aL:arms[0],fL:arms[1],aR:arms[2],fR:arms[3],shirtM,pantsM:pants,wMesh:pc}}
+
 function ent(name,shirt,skin,me){const el=document.createElement("div");el.className="lab";el.innerHTML="<small></small><span></span>";$("lb").appendChild(el);
 const h=human(shirt,skin);S.add(h.g);
 return Object.assign(h,{el,me,name,x:0,y:0,z:0,r:.7,yaw:0,q:null,prot:0,cool:0,mark:false,markedBy:null,busy:null,alive:true,lives:2,kills:0,tx:0,tz:0,rt:0,moving:false,vy:0,jumps:0,ry:0,pitch:0,rec:0,pts:0,elims:0,respT:0,hh:2.8,dyaw:0,walk:0,ph:Math.random()*6})}
 /* mão em primeira pessoa */
 const VS=new THREE.Scene(),vcam=new THREE.PerspectiveCamera(70,16/9,.05,10);
 VS.add(new THREE.HemisphereLight(0xffffff,0x8899aa,1),new THREE.DirectionalLight(0xffffff,.6));
-const vw=new THREE.Group(),vp=pencil(0x4a90e2);vp.scale.setScalar(.26);vp.rotation.x=-Math.PI/2;vp.position.set(.3,-.3,-.35);
+const vw=new THREE.Group();let vp=pencil(0x4a90e2);vp.scale.setScalar(.26);vp.rotation.x=-Math.PI/2;vp.position.set(.3,-.3,-.35);
+
 const hand=new THREE.Mesh(new THREE.SphereGeometry(.62,12,10),MT(0xf1c9a5));hand.position.set(.1,1.2,.1);vp.add(hand);
 const arm=new THREE.Mesh(new THREE.CylinderGeometry(.42,.5,3.4,10),MT(0x3a6fb5));arm.position.set(.5,-2.3,-1);vp.add(arm);
 vw.add(vp);VS.add(vw);
@@ -483,7 +548,8 @@ if(match.spec)P.alive=false;if(!P.q)P.q=nq();
 P.ry=0;P.pitch=0;P.hh=2.8;shots.forEach(s=>S.remove(s.m));shots=[];target=null;over=false;timeLeft=match.dur;$("tp").hidden=true;$("hitfx").hidden=true;hud()}
 /* estados: início, jogo, pausa, fim */
 function updHint(){$("hint").hidden=true}
-const SCR=["menu","role","login","s_signup","s_verify","s_setup","s_login","shome","tcfg","room","pause","end"];
+const SCR=["menu","role","login","s_signup","s_verify","s_setup","s_login","shome","tcfg","room","pause","end","skins"];
+
 function setState(x){state=x;const st=$("stage");st.dataset.s=x;st.dataset.spec=(match.spec&&(x==="play"||x==="pause"))?"1":"";for(const k of SCR)$(k).hidden=k!==x;$("board").hidden=!(match.spec&&x==="play");updHint()}
 const unlock=()=>{if(document.pointerLockElement===cv){intentional=true;try{document.exitPointerLock()}catch(_){}}};
 const lock=()=>{if(noLock||state!=="play"||match.spec)return;try{const p=cv.requestPointerLock();if(p&&p.catch)p.catch(()=>{})}catch(_){}};
