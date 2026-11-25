@@ -47,8 +47,8 @@ tr.me td{color:#ffd400}
 .scr{position:absolute;inset:0;display:grid;place-items:center;background:rgba(6,12,28,.55);z-index:20}
 #menu{background:radial-gradient(ellipse at center,rgba(6,12,28,.25),rgba(6,12,28,.7))}
 .box{text-align:center;background:rgba(10,18,38,.82);border:2px solid rgba(255,255,255,.18);border-radius:22px;padding:26px 36px;width:min(620px,94vw)}
-#menu .box{background:none;border:0}
-.logo{font-size:clamp(56px,11vw,120px);line-height:1;letter-spacing:3px;background:linear-gradient(#fff,#ffd400 55%,#ff9a00);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 6px 0 rgba(0,0,0,.45));margin-bottom:28px}
+#menu .box{background:none;border:0;width:auto;max-width:98vw;overflow:visible}
+.logo{font-size:clamp(40px,9.5vw,120px);line-height:1.1;letter-spacing:3px;white-space:nowrap;padding:0 .12em .08em;background:linear-gradient(#fff,#ffd400 55%,#ff9a00);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 6px 0 rgba(0,0,0,.45));margin-bottom:28px}
 .box h1{margin:0 0 14px;font-weight:400;font-size:42px}
 .box p{color:var(--soft);margin:6px 0 14px;font-size:18px}
 .set{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:7px 0;font-size:21px;text-align:left}
@@ -107,8 +107,8 @@ input,textarea{-webkit-user-select:text;user-select:text}
 <div class="hud" id="tabh">TAB placar · ESC pausa</div>
 <div class="hud" id="msg"></div>
 <div class="hud" id="hint" hidden><span>Clique na tela para olhar com o mouse (ou arraste com o botão direito)</span></div>
-<div class="panel" id="tp" hidden><label>Alvo marcado</label><span class="q" id="tq"></span><input id="ti" autocomplete="off" placeholder="Resposta e Enter"></div>
-<div class="panel" id="own"><label>Sua pergunta</label><span class="q" id="oq"></span><input id="oi" autocomplete="off" placeholder="Resposta (tecla E)"></div>
+<div class="panel" id="tp" hidden><label>Alvo marcado (Q)</label><span class="q" id="tq"></span><input id="ti" autocomplete="off" placeholder="Resposta e Enter"></div>
+<div class="panel" id="own"><label>Sua pergunta (E)</label><span class="q" id="oq"></span><input id="oi" autocomplete="off" placeholder="Resposta (tecla E)"></div>
 <div id="board" hidden><h2 id="bh"></h2><div id="bt"></div></div>
 <div class="scr" id="menu"><div class="box"><div class="logo">MINDSHOT</div><button class="btn big" id="bstart">Iniciar jogo</button></div></div>
 <div class="scr" id="pause" hidden><div class="box"><h1>Pausado</h1>
@@ -564,8 +564,8 @@ const SCR=["menu","role","login","s_signup","s_verify","s_setup","s_login","shom
 
 function setState(x){state=x;const st=$("stage");st.dataset.s=x;st.dataset.spec=(match.spec&&(x==="play"||x==="pause"))?"1":"";for(const k of SCR)$(k).hidden=k!==x;$("board").hidden=!(match.spec&&x==="play");updHint()}
 const unlock=()=>{if(document.pointerLockElement===cv){intentional=true;try{document.exitPointerLock()}catch(_){}}};
-const lock=()=>{if(noLock||state!=="play"||match.spec)return;try{const p=cv.requestPointerLock();if(p&&p.catch)p.catch(()=>{})}catch(_){}};
-const fo=el=>{unlock();keys={};el.focus()};
+const lock=()=>{if(noLock||state!=="play"||match.spec||document.pointerLockElement===cv)return;try{const p=cv.requestPointerLock();if(p&&p.catch)p.catch(()=>{})}catch(_){}};
+const fo=el=>{keys={};el.focus()};
 function fs(){const d=document.documentElement;try{if(!document.fullscreenElement&&d.requestFullscreen){const p=d.requestFullscreen();if(p&&p.then)p.then(()=>{try{navigator.keyboard&&navigator.keyboard.lock&&navigator.keyboard.lock(["Escape"]).catch(()=>{})}catch(_){}}).catch(()=>{})}}catch(_){}}
 function startGame(){reset();setState("play");startMusic();lock()}
 function pause(){if(state!=="play")return;keys={};if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();setState("pause");unlock()}
@@ -727,7 +727,7 @@ $("bstart").onclick=()=>{startMusic();setState("role")};const again=()=>{if(matc
 $("vm").oninput=e=>{mvol=e.target.value/100;if(mg)mg.gain.value=mvol};$("vs").oninput=e=>{svol=e.target.value/100};$("sn").oninput=e=>{sens=e.target.value/100};
 $("lvl").onchange=e=>{level=e.target.value};$("ql").onchange=e=>setQ(e.target.value);
 $("oi").addEventListener("keydown",e=>{if(e.key!=="Enter")return;const a=$("oi").value;$("oi").value="";if(!a.trim()||over||!P.alive)return;
-if(ok(P.q,a)){P.lives=Math.min(P.lives+1,3);say("Vida extra!");sfx(660,.25,"sine",.12,990)}else say("Errou, outra pergunta");P.q=nq();hud();lock()});
+if(ok(P.q,a)){P.lives=Math.min(P.lives+1,3);say("Vida extra!");sfx(660,.25,"sine",.12,990)}else say("Errou, outra pergunta");P.q=nq();hud();$("oi").blur();lock()});
 $("ti").addEventListener("keydown",e=>{if(e.key!=="Enter"||!target)return;const a=$("ti").value;$("ti").value="";if(!a.trim())return;
 const b=target;target=null;$("tp").hidden=true;$("ti").blur();b.mark=false;b.markedBy=null;
 if(b.remote)ansRemote(b,ok(b.q,a));else if(ok(b.q,a))hurt(b,P);else{b.q=nq();P.cool=1;say("Errou! O alvo ganhou outra pergunta")}hud();lock()});
@@ -783,7 +783,7 @@ if(!dead)for(const e of all){
 if(e===s.o||!e.alive||e.prot>0||s.y<e.y||s.y>e.y+e.hh||Math.hypot(e.x-s.x,e.z-s.z)>e.r+.3)continue;
 dead=true;
 if(!e.mark&&!s.o.busy&&!(s.o.me&&target)){e.mark=true;e.markedBy=s.o;
-if(s.o.me){if(e.remote)netSend({t:"event",e:"mark",d:{to:e.pid}});sfx(500,.18,"sawtooth",.08,900);target=e;$("tq").textContent=e.q[0];$("tp").hidden=false;fo($("ti"))}
+if(s.o.me){if(e.remote)netSend({t:"event",e:"mark",d:{to:e.pid}});sfx(500,.18,"sawtooth",.08,900);target=e;$("tq").textContent=e.q[0];$("tp").hidden=false;say("Alvo marcado! Aperte Q para responder")}
 else{const T=3+Math.random()*2.5;s.o.busy={tgt:e,t:T,tot:T};if(e.me){say(s.o.name+" marcou você!");sfx(260,.3,"sawtooth",.12,120)}}}
 break}
 if(dead)S.remove(s.m);return !dead});
